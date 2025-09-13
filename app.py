@@ -5,7 +5,9 @@ Streamlit 기반 5단계 워크플로 UI
 
 import streamlit as st
 import os
-from config import config
+from config.app_config import get_app_config
+from config.langchain_config import initialize_langchain
+from storage.startup_initializer import initialize_app
 
 
 def main():
@@ -19,15 +21,31 @@ def main():
         initial_sidebar_state="expanded"
     )
     
+    # 설정 초기화
+    app_config = get_app_config()
+    langchain_initialized = initialize_langchain(app_config.environment)
+    
+    # 애플리케이션 초기화 (테이블 생성 및 데이터 로드)
+    if 'app_initialized' not in st.session_state:
+        with st.spinner("애플리케이션 초기화 중..."):
+            initialization_success = initialize_app(app_config.environment)
+            st.session_state.app_initialized = initialization_success
+            if not initialization_success:
+                st.error("⚠️ 애플리케이션 초기화에 실패했습니다. 관리자에게 문의하세요.")
+                st.stop()
+    
     # 헤더
     st.title("🏪 AI 브랜딩 챗봇")
     st.markdown("상호명부터 인테리어까지, AI가 제안하는 완벽한 브랜딩 솔루션")
     
     # 환경 정보 표시 (개발용)
-    if config.debug_mode:
+    if app_config.debug_mode:
         with st.sidebar:
-            st.info(f"환경: {config.app_env.value.upper()}")
-            st.info(f"벡터 DB: {config.vector_store_type.value}")
+            st.info(f"환경: {app_config.environment.upper()}")
+            vector_config = app_config.get_vector_store_config()
+            st.info(f"벡터 DB: {vector_config['type']}")
+            storage_config = app_config.get_storage_config()
+            st.info(f"저장소: {storage_config['type']}")
     
     # 헬스체크 엔드포인트 (간단한 방법)
     # 사이드바에 헬스체크 버튼 추가
@@ -35,7 +53,8 @@ def main():
         if st.button("🔍 헬스체크"):
             st.success("✅ 애플리케이션이 정상 동작 중입니다.")
             st.info(f"Streamlit 버전: {st.__version__}")
-            st.info(f"환경: {config.app_env.value}")
+            st.info(f"환경: {app_config.environment}")
+            st.info(f"LangChain 초기화: {'성공' if langchain_initialized else '실패'}")
             st.info(f"설정 로드: 성공")
     
     # 임시 메시지 (실제 구현은 다음 태스크에서)

@@ -21,15 +21,26 @@ wheels/
 *.egg
 MANIFEST
 
-# Virtual environments
-venv/
-env/
-ENV/
-
-# Environment variables
+# 환경 변수 파일
 .env
 .env.local
 .env.dev
+.env.production
+
+# 로그 파일
+logs/
+*.log
+
+# 데이터 파일
+data/chroma_db/
+data/images/
+*.db
+*.sqlite
+
+# 보고서 파일
+reports/*.pdf
+reports/*.png
+reports/*.jpg
 
 # IDE
 .vscode/
@@ -37,21 +48,42 @@ ENV/
 *.swp
 *.swo
 
+# macOS
+.DS_Store
+
+# Docker
+.dockerignore
+
 # Streamlit
 .streamlit/
 
-# Logs
-*.log
-logs/
-
-# Temporary files
-temp/
+# 임시 파일
 tmp/
+temp/
 *.tmp
 
-# Generated reports
-reports/*.pdf
+# API 키 및 민감한 정보
+*api_key*
+*secret*
+*password*
 
-# Cache
-.cache/
-*.cache
+# LangChain 캐시
+.langchain/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pytest
+.pytest_cache/
+.coverage
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# venv
+venv
+
+# docker
+docker

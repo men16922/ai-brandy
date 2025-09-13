@@ -1,0 +1,22 @@
+{
+  "environment": "dev",
+  "aws": {
+    "region": "us-east-1",
+    "stack_name": "brandy-infrastructure-dev",
+    "cloudformation_template": "infrastructure/cloudformation/dynamodb-tables.yaml"
+  },
+  "resources": {
+    "s3_bucket": "brandy-storage-dev",
+    "tables": {
+      "regions": "brandy-regions-dev",
+      "business_types": "brandy-business-types-dev", 
+      "workflow": "brandy-workflow-dev"
+    }
+  },
+  "features": {
+    "point_in_time_recovery": true,
+    "encryption": true,
+    "ttl_enabled": true,
+    "streams_enabled": true
+  }
+}

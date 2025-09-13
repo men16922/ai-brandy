@@ -1,7 +1,7 @@
 """
-Configuration package
+설정 모듈 초기화
 """
 
-from .app_config import AppConfig, load_config, config
+from .langchain_config import get_langchain_config, initialize_langchain
 
-__all__ = ["AppConfig", "load_config", "config"]
+__all__ = ["get_langchain_config", "initialize_langchain"]

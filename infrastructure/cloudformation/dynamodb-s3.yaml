@@ -1,0 +1,405 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "AI 브랜딩 챗봇 - DynamoDB 테이블 및 S3 버킷 (v1.2, SSE/KMS 및 S3 ARN/IAM 정합성 수정)"
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "데모 프로젝트 설정"
+        Parameters:
+          - ProjectName
+          - Environment
+          - EnableDemoFeatures
+    ParameterLabels:
+      ProjectName:
+        default: "프로젝트 이름"
+      Environment:
+        default: "배포 환경 (데모용)"
+      EnableDemoFeatures:
+        default: "데모 기능 활성화"
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev]
+    Description: 배포 환경 (데모용 - dev만 지원)
+    ConstraintDescription: 데모 환경은 dev만 지원됩니다
+
+  ProjectName:
+    Type: String
+    Default: brandy
+    MinLength: 3
+    MaxLength: 20
+    AllowedPattern: "^[a-z][a-z0-9-]*[a-z0-9]$"
+    Description: 프로젝트 이름 (소문자, 숫자, 하이픈만 허용)
+    ConstraintDescription: 3-20자, 소문자로 시작, 소문자/숫자/하이픈만 사용 가능
+
+  EnableDemoFeatures:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: 데모용 추가 기능 활성화 (CloudWatch Insights, 상세 태깅 등)
+
+Conditions:
+  EnableDemoFeaturesCondition: !Equals [!Ref EnableDemoFeatures, "true"]
+
+Resources:
+  # S3 버킷 - 이미지 및 파일 저장 (데모용)
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      BucketName: !Sub "${ProjectName}-storage-${Environment}-${AWS::AccountId}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: "AES256"  # AWS 관리 키
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+          - Id: DeleteDemoFiles
+            Status: Enabled
+            ExpirationInDays: 7
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 3
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Purpose
+          Value: 데모용 이미지 및 파일 저장
+        - Key: Demo
+          Value: "true"
+        - Key: AutoDelete
+          Value: "7days"
+
+  # S3 버킷 정책 (정확한 ARN 사용)
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Statement:
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !Sub "arn:aws:s3:::${S3Bucket}"
+              - !Sub "arn:aws:s3:::${S3Bucket}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  # 지역 데이터 테이블 (데모용)
+  RegionsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Sub "${ProjectName}-regions-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      SSESpecification:
+        SSEEnabled: true   # 기본 암호화, KMS 키 직접 지정 안 함
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      ContributorInsightsSpecification:
+        Enabled: !If [EnableDemoFeaturesCondition, true, false]
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Purpose
+          Value: 데모용 지역별 특성 데이터
+        - Key: Demo
+          Value: "true"
+        - Key: DataClassification
+          Value: Demo
+
+  # 업종 데이터 테이블 (데모용)
+  BusinessTypesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Sub "${ProjectName}-business-types-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      SSESpecification:
+        SSEEnabled: true   # 기본 암호화
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      ContributorInsightsSpecification:
+        Enabled: !If [EnableDemoFeaturesCondition, true, false]
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Purpose
+          Value: 데모용 업종별 키워드 및 스타일 데이터
+        - Key: Demo
+          Value: "true"
+        - Key: DataClassification
+          Value: Demo
+
+  # 워크플로 세션 테이블 (데모용)
+  WorkflowTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Sub "${ProjectName}-workflow-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: expire_at
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: true   # 기본 암호화
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      ContributorInsightsSpecification:
+        Enabled: !If [EnableDemoFeaturesCondition, true, false]
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Purpose
+          Value: 데모용 워크플로 세션 및 채팅 이력
+        - Key: Demo
+          Value: "true"
+        - Key: DataClassification
+          Value: Demo
+        - Key: TTL
+          Value: "24hours"
+
+  # CloudWatch 로그 그룹 (데모용)
+  DemoLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: EnableDemoFeaturesCondition
+    Properties:
+      LogGroupName: !Sub "/aws/demo/${ProjectName}"
+      RetentionInDays: 3
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Demo
+          Value: "true"
+
+  # IAM 역할 - 데모 애플리케이션용
+  DemoApplicationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-demo-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DemoDynamoDBAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                Resource:
+                  - !GetAtt RegionsTable.Arn
+                  - !GetAtt BusinessTypesTable.Arn
+                  - !GetAtt WorkflowTable.Arn
+                  - !Sub "${WorkflowTable.Arn}/index/*"
+        - PolicyName: DemoS3Access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # ListBucket는 버킷 ARN만 허용
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::${S3Bucket}"
+              # 객체 조작은 객체 ARN만 허용
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub "arn:aws:s3:::${S3Bucket}/*"
+        - PolicyName: DemoBedrockAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                  - bedrock:ListFoundationModels
+                Resource: "*"
+        - PolicyName: DemoCloudWatchLogs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/demo/${ProjectName}*"
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Demo
+          Value: "true"
+
+  # 인스턴스 프로파일 (데모용)
+  DemoInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub "${ProjectName}-demo-profile"
+      Roles:
+        - !Ref DemoApplicationRole
+
+Outputs:
+  S3BucketName:
+    Description: S3 버킷 이름
+    Value: !Ref S3Bucket
+    Export:
+      Name: !Sub "${AWS::StackName}-S3Bucket"
+
+  S3BucketArn:
+    Description: S3 버킷 ARN
+    Value: !GetAtt S3Bucket.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-S3BucketArn"
+
+  RegionsTableName:
+    Description: 지역 데이터 테이블 이름
+    Value: !Ref RegionsTable
+    Export:
+      Name: !Sub "${AWS::StackName}-RegionsTable"
+
+  BusinessTypesTableName:
+    Description: 업종 데이터 테이블 이름
+    Value: !Ref BusinessTypesTable
+    Export:
+      Name: !Sub "${AWS::StackName}-BusinessTypesTable"
+
+  WorkflowTableName:
+    Description: 워크플로 테이블 이름
+    Value: !Ref WorkflowTable
+    Export:
+      Name: !Sub "${AWS::StackName}-WorkflowTable"
+
+  DemoApplicationRoleArn:
+    Description: 데모용 애플리케이션 IAM 역할 ARN
+    Value: !GetAtt DemoApplicationRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-DemoApplicationRole"
+
+  DemoInstanceProfileArn:
+    Description: 데모용 인스턴스 프로파일 ARN
+    Value: !GetAtt DemoInstanceProfile.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-DemoInstanceProfile"
+
+  DemoInfo:
+    Description: 데모 환경 정보
+    Value: !Sub |
+      데모 환경이 성공적으로 배포되었습니다.
+
+      리소스 정보:
+      - S3 버킷: ${S3Bucket}
+      - DynamoDB 테이블: 3개 (자동 TTL 설정)
+      - IAM 역할: ${DemoApplicationRole}
+
+      주의사항:
+      - 데모용으로 7일 후 S3 파일 자동 삭제
+      - DynamoDB 세션은 24시간 TTL 설정
+      - Point-in-Time Recovery 비활성화 (비용 절약)
+
+      정리: 스택 삭제 시 대부분 리소스 자동 삭제

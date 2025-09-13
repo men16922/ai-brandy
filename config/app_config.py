@@ -1,115 +1,120 @@
 """
-Application Configuration Module
-환경별 설정 관리 및 검증
+애플리케이션 전역 설정 관리
 """
 
 import os
-from typing import Optional, Dict, Any
-from pydantic import Field, validator
-from pydantic_settings import BaseSettings
-from enum import Enum
+from typing import Dict, Any
+from dotenv import load_dotenv
 
 
-class Environment(str, Enum):
-    LOCAL = "local"
-    DEV = "dev"
-    PROD = "prod"
-
-
-class VectorStoreType(str, Enum):
-    CHROMA = "chroma"
-    BEDROCK = "bedrock"
-
-
-class AppConfig(BaseSettings):
+class AppConfig:
     """애플리케이션 설정 클래스"""
     
-    # Environment
-    app_env: Environment = Field(default=Environment.LOCAL, env="APP_ENV")
-    debug_mode: bool = Field(default=True, env="DEBUG_MODE")
-    
-    # API Keys
-    openai_api_key: str = Field(..., env="OPENAI_API_KEY")
-    google_api_key: Optional[str] = Field(None, env="GOOGLE_API_KEY")
-    anthropic_api_key: Optional[str] = Field(None, env="ANTHROPIC_API_KEY")
-    
-    # AWS Configuration
-    aws_access_key_id: Optional[str] = Field(None, env="AWS_ACCESS_KEY_ID")
-    aws_secret_access_key: Optional[str] = Field(None, env="AWS_SECRET_ACCESS_KEY")
-    aws_default_region: str = Field(default="us-east-1", env="AWS_DEFAULT_REGION")
-    aws_endpoint_url: Optional[str] = Field(None, env="AWS_ENDPOINT_URL")
-    
-    # Storage Configuration
-    s3_bucket_name: str = Field(..., env="S3_BUCKET_NAME")
-    dynamodb_table_prefix: str = Field(default="brandy", env="DYNAMODB_TABLE_PREFIX")
-    dynamodb_endpoint_url: Optional[str] = Field(None, env="DYNAMODB_ENDPOINT_URL")
-    
-    # Vector Database
-    vector_store_type: VectorStoreType = Field(default=VectorStoreType.CHROMA, env="VECTOR_STORE_TYPE")
-    chroma_host: str = Field(default="localhost", env="CHROMA_HOST")
-    chroma_port: int = Field(default=8001, env="CHROMA_PORT")
-    bedrock_knowledge_base_id: Optional[str] = Field(None, env="BEDROCK_KNOWLEDGE_BASE_ID")
-    bedrock_region: str = Field(default="us-east-1", env="BEDROCK_REGION")
-    
-    # Application Settings
-    log_level: str = Field(default="INFO", env="LOG_LEVEL")
-    max_regeneration_count: int = Field(default=3, env="MAX_REGENERATION_COUNT")
-    
-    # Directories
-    data_dir: str = Field(default="./data", env="DATA_DIR")
-    logs_dir: str = Field(default="./logs", env="LOGS_DIR")
-    reports_dir: str = Field(default="./reports", env="REPORTS_DIR")
-    config_dir: str = Field(default="./config", env="CONFIG_DIR")
-    
-    # Performance Settings
-    request_timeout: int = Field(default=30, env="REQUEST_TIMEOUT")
-    image_generation_timeout: int = Field(default=60, env="IMAGE_GENERATION_TIMEOUT")
-    pdf_generation_timeout: int = Field(default=20, env="PDF_GENERATION_TIMEOUT")
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
-    
-    @validator("app_env", pre=True)
-    def validate_environment(cls, v):
-        if isinstance(v, str):
-            return Environment(v.lower())
-        return v
-    
-    @validator("vector_store_type", pre=True)
-    def validate_vector_store_type(cls, v):
-        if isinstance(v, str):
-            return VectorStoreType(v.lower())
-        return v
-    
-    def get_dynamodb_table_name(self, table_type: str) -> str:
-        """DynamoDB 테이블명 생성"""
-        return f"{self.dynamodb_table_prefix}-{table_type}-{self.app_env.value}"
-    
-    def get_s3_key_prefix(self, key_type: str) -> str:
-        """S3 키 프리픽스 생성"""
-        return f"{self.app_env.value}/{key_type}"
-    
-    def is_local_environment(self) -> bool:
-        """로컬 환경 여부 확인"""
-        return self.app_env == Environment.LOCAL
-    
-    def is_dev_environment(self) -> bool:
-        """개발 환경 여부 확인"""
-        return self.app_env == Environment.DEV
+    def __init__(self, environment: str = None):
+        """
+        설정 초기화
+        
+        Args:
+            environment: 환경 설정 (local/dev)
+        """
+        self.environment = environment or os.getenv("APP_ENV", "local")
+        self.load_environment_variables()
+        
+    def load_environment_variables(self):
+        """환경별 .env 파일 로드"""
+        env_file = f".env.{self.environment}"
+        if os.path.exists(env_file):
+            load_dotenv(env_file)
+            print(f"Loaded environment variables from {env_file}")
+        else:
+            print(f"Environment file {env_file} not found, using system environment variables")
+            
+    @property
+    def is_local(self) -> bool:
+        """로컬 환경 여부"""
+        return self.environment == "local"
+        
+    @property
+    def is_dev(self) -> bool:
+        """개발 환경 여부"""
+        return self.environment == "dev"
+        
+    @property
+    def debug_mode(self) -> bool:
+        """디버그 모드 여부"""
+        return os.getenv("DEBUG_MODE", "false").lower() == "true"
+        
+    @property
+    def log_level(self) -> str:
+        """로그 레벨"""
+        return os.getenv("LOG_LEVEL", "INFO")
+        
+    def get_database_config(self) -> Dict[str, Any]:
+        """데이터베이스 설정 반환"""
+        if self.is_local:
+            return {
+                "dynamodb_endpoint": os.getenv("DYNAMODB_ENDPOINT", "http://localhost:8000"),
+                "region": os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+            }
+        else:
+            return {
+                "region": os.getenv("AWS_DEFAULT_REGION", "us-east-1"),
+                "s3_bucket": os.getenv("S3_BUCKET_NAME", "ai-branding-dev")
+            }
+            
+    def get_storage_config(self) -> Dict[str, Any]:
+        """저장소 설정 반환 (S3/MinIO)"""
+        if self.is_local:
+            return {
+                "type": "minio",
+                "endpoint": os.getenv("MINIO_ENDPOINT", "http://localhost:9000"),
+                "access_key": os.getenv("MINIO_ACCESS_KEY", "minioadmin"),
+                "secret_key": os.getenv("MINIO_SECRET_KEY", "minioadmin"),
+                "bucket_name": os.getenv("MINIO_BUCKET_NAME", "ai-branding-local"),
+                "base_images_bucket": os.getenv("BASE_IMAGES_BUCKET", "branding-base-images-local")
+            }
+        else:
+            return {
+                "type": "s3",
+                "region": os.getenv("AWS_DEFAULT_REGION", "us-east-1"),
+                "bucket_name": os.getenv("S3_BUCKET_NAME", "ai-branding-dev"),
+                "base_images_bucket": os.getenv("S3_BASE_IMAGES_BUCKET", "branding-base-images-dev")
+            }
+            
+    def get_vector_store_config(self) -> Dict[str, Any]:
+        """벡터 스토어 설정 반환"""
+        if self.is_local:
+            return {
+                "type": "chroma",
+                "persist_directory": os.getenv("CHROMA_PERSIST_DIRECTORY", "./data/chroma_db"),
+                "collection_name": os.getenv("CHROMA_COLLECTION_NAME", "branding_knowledge")
+            }
+        else:
+            return {
+                "type": "bedrock",
+                "knowledge_base_id": os.getenv("BEDROCK_KNOWLEDGE_BASE_ID"),
+                "region": os.getenv("BEDROCK_REGION", "us-east-1")
+            }
+            
+    def get_storage_paths(self) -> Dict[str, str]:
+        """저장소 경로 설정 반환"""
+        return {
+            "data_dir": os.getenv("LOCAL_DATA_DIR", "./data"),
+            "logs_dir": os.getenv("LOCAL_LOGS_DIR", "./logs"),
+            "reports_dir": os.getenv("LOCAL_REPORTS_DIR", "./reports"),
+            "images_dir": os.getenv("LOCAL_IMAGES_DIR", "./data/images")
+        }
 
 
-def load_config() -> AppConfig:
-    """환경별 설정 로드"""
-    env = os.getenv("APP_ENV", "local").lower()
+# 전역 설정 인스턴스
+_app_config = None
+
+
+def get_app_config(environment: str = None) -> AppConfig:
+    """애플리케이션 설정 싱글톤 인스턴스 반환"""
+    global _app_config
     
-    # 환경별 .env 파일 로드
-    env_file = f".env.{env}"
-    if os.path.exists(env_file):
-        return AppConfig(_env_file=env_file)
-    else:
-        return AppConfig()
-
-
-# Global configuration instance
-config = load_config()
+    if _app_config is None:
+        _app_config = AppConfig(environment)
+        
+    return _app_config

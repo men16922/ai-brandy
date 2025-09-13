@@ -29,7 +29,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # 3. 백엔드 서비스 시작
-docker-compose up -d dynamodb-local chroma-db
+docker-compose up -d
 
 # 4. 애플리케이션 실행
 export $(cat .env.local | xargs)
@@ -77,8 +77,13 @@ docker-compose ps
 
 #### 2-3. 애플리케이션 실행
 ```bash
-# 환경 변수 로드 및 앱 실행
-export $(cat .env.local | xargs)
+
+# local
+streamlit run app.py
+
+# dev
+source venv/bin/activate
+source .env.dev
 streamlit run app.py
 
 # 또는 직접 실행
@@ -89,7 +94,10 @@ APP_ENV=local streamlit run app.py
 - **메인 애플리케이션**: http://localhost:8501
 - **헬스체크**: http://localhost:8501/?health=true
 - **DynamoDB Local**: http://localhost:8000
-- **Chroma DB**: http://localhost:8001
+- **MinIO Console**: http://localhost:9001 (minioadmin/minioadmin)
+- **MinIO API**: http://localhost:9000
+- **Chroma DB**: http://localhost:8003
+- **DynamoDB Admin**: http://localhost:8002
 
 ### 3. Docker로 전체 스택 실행
 
@@ -107,12 +115,44 @@ open http://localhost:8501
 docker-compose down
 ```
 
+```bash
+## docker dynamodb TEST
+aws dynamodb list-tables \
+  --endpoint-url http://127.0.0.1:8000 \
+  --region us-east-1 \
+  --no-cli-pager --profile local-dynamodb
+
+## dynamodb admin
+http://localhost:8001
+
+## minio
+http://127.0.0.1:9001
+
+## Chroma
+http://127.0.0.1:8003/api/v2/version
+```
+
+
+### 4. CloudFormation으로 aws dev 환경 배포
+```bash
+aws sts get-caller-identity
+./scripts/validate-template.sh
+./scripts/deploy-infrastructure.sh -e dev
+
+# yml 업데이트
+./scripts/update-env-from-stack.sh
+
+# 모든 리소스 삭제
+./scripts/deploy-infrastructure.sh -e dev --delete
+
+```
+
 ## 환경별 설정
 
 ### Local 환경 (.env.local)
 - DynamoDB Local (포트 8000)
-- Chroma Vector DB (포트 8001)
-- AWS S3 (실제 AWS 서비스 사용)
+- MinIO (S3 호환 로컬 스토리지, 포트 9000/9001)
+- Chroma Vector DB (포트 8003)
 
 ### Dev 환경 (.env.dev)
 - AWS DynamoDB
@@ -180,7 +220,7 @@ pytest tests/integration/
 # 사용 중인 포트 확인
 lsof -i :8501  # Streamlit
 lsof -i :8000  # DynamoDB Local
-lsof -i :8001  # Chroma DB
+lsof -i :8003  # Chroma DB
 
 # 프로세스 종료
 kill -9 <PID>

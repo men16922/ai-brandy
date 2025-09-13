@@ -45,8 +45,8 @@ AI 브랜딩 챗봇을 macOS + Docker 환경에서 처음부터 새로 구현한
 │        Local 환경           │           Dev 환경                │
 ├─────────────────────────────┼───────────────────────────────────┤
 │ ┌─────────────────────────┐ │ ┌─────────────────────────────────┐ │
-│ │ DynamoDB Local (Docker) │ │ │ AWS DynamoDB (온디맨드)          │ │
-│ │ S3 Local Bucket         │ │ │ S3 Dev Bucket                   │ │
+│ │ DynamoDB Local (Docker) │ │ │ AWS DynamoDB (온디맨드)           │ │
+│ │ MinIO Local Bucket      │ │ │ S3 Dev Bucket                   │ │
 │ │ Chroma Vector DB        │ │ │ Bedrock Knowledge Base          │ │
 │ └─────────────────────────┘ │ └─────────────────────────────────┘ │
 └─────────────────────────────┴───────────────────────────────────┘
@@ -636,10 +636,10 @@ class LocalStorage(BaseStorage):
         """DynamoDB Local에 채팅 이력 저장"""
         
     def save_image(self, image_data: bytes, key: str) -> str:
-        """S3 Local Bucket에 이미지 업로드"""
+        """MinIO (S3 호환)에 이미지 업로드"""
         
     def upload_to_vector_store(self, file_path: str, metadata: dict) -> str:
-        """S3 Vector에 보고서/이미지 업로드 (RAG KB용)"""
+        """MinIO에 보고서/이미지 업로드 (RAG KB용)"""
         
     def get_regions(self) -> dict:
         """DynamoDB에서 지역 데이터 조회"""
