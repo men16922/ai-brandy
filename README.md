@@ -1,20 +1,28 @@
-# AI 브랜딩 챗봇
+# 🏪 AI 브랜딩 챗봇
 
 AI를 활용한 브랜딩 솔루션으로 상호명 추천부터 간판/인테리어 디자인까지 제공하는 통합 서비스입니다.
 
-## 주요 기능
+## ✨ 주요 기능
 
-- **상호명 추천**: 업종과 지역에 맞는 상호명 3개 추천
-- **간판 디자인**: DALL-E 3, SDXL, Gemini를 활용한 간판 이미지 생성
-- **인테리어 추천**: 선택한 간판과 조화를 맞춘 인테리어 디자인
-- **PDF 보고서**: 모든 선택사항을 포함한 완성된 보고서 생성
-- **환경별 실행**: Local(Docker) 및 Dev(AWS) 환경 지원
+### 5단계 워크플로
+1. **비즈니스 정보 입력**: 업종, 지역, 평수 등 기본 정보 수집
+2. **상호명 생성**: AI가 추천하는 3개의 상호명 (재생성 최대 3회)
+3. **간판 디자인**: 선택된 상호명으로 3가지 간판 디자인 생성
+4. **인테리어 추천**: 간판과 조화를 맞춘 3가지 인테리어 디자인
+5. **PDF 보고서**: 최종 선택사항을 포함한 완성된 보고서 생성
 
-## 시스템 요구사항
+### 기술 특징
+- **멀티 AI 모델**: OpenAI DALL-E 3, AWS Bedrock SDXL, Google Gemini 지원
+- **환경별 배포**: Local(Docker) 및 AWS Dev 환경 자동 전환
+- **자동 초기화**: 테이블 생성 및 데이터 로드 자동화
+- **헬스체크**: 실시간 시스템 상태 모니터링
 
-- Python 3.11+
-- Docker & Docker Compose
-- 8GB+ RAM 권장
+## 🛠 시스템 요구사항
+
+- **Python**: 3.11+
+- **Docker**: Docker & Docker Compose
+- **메모리**: 8GB+ RAM 권장
+- **AWS CLI**: Dev 환경 사용 시 필요
 
 ## 🚀 빠른 시작
 
@@ -159,24 +167,42 @@ aws sts get-caller-identity
 - AWS S3
 - Bedrock Knowledge Base
 
-## 프로젝트 구조
+## 📁 프로젝트 구조
 
 ```
 ai-branding-chatbot/
-├── app.py                 # Streamlit 메인 애플리케이션
-├── config/               # 설정 파일
-├── core/                 # 핵심 비즈니스 로직
-├── adapters/             # AI 모델 어댑터
-├── storage/              # 데이터 저장소
-├── utils/                # 유틸리티
-├── data/                 # 초기 데이터
-├── logs/                 # 로그 파일
-├── reports/              # 생성된 보고서
-├── tests/                # 테스트 및 검증 스크립트
-└── docker/               # Docker 설정 및 볼륨 데이터
-    ├── compose/          # Docker Compose 파일들
-    ├── chroma/           # Chroma DB 데이터
-    └── dynamodb/         # DynamoDB Local 데이터
+├── app.py                     # Streamlit 메인 애플리케이션
+├── requirements.txt           # Python 의존성
+├── docker-compose.yml         # Local 개발 환경
+├── .env.local                 # Local 환경 설정
+├── .env.dev                   # Dev 환경 설정
+├── config/                    # 애플리케이션 설정
+│   ├── app_config.py         # 환경별 설정 관리
+│   └── langchain_config.py   # LangChain 초기화
+├── storage/                   # 데이터 저장소 계층
+│   ├── unified_storage.py    # 통합 저장소 구현
+│   ├── storage_factory.py    # 저장소 팩토리
+│   ├── data_initializer.py   # 데이터 초기화
+│   ├── startup_initializer.py # 앱 시작 초기화
+│   └── schemas/              # DynamoDB 스키마 정의
+├── models/                    # 데이터 모델
+│   └── data_models.py        # Pydantic/Dataclass 모델
+├── utils/                     # 유틸리티 함수
+│   ├── logger.py             # 구조화된 로깅
+│   └── models.py             # 모델 유틸리티
+├── data/                      # 정적 데이터
+│   ├── regions.json          # 지역 데이터
+│   └── business_types.json   # 업종 데이터
+├── infrastructure/            # 인프라 코드 (IaC)
+│   └── cloudformation/       # CloudFormation 템플릿
+├── scripts/                   # 유틸리티 스크립트
+│   ├── deploy-infrastructure.sh
+│   └── validate-template.sh
+├── tests/                     # 테스트 코드
+├── docs/                      # 문서
+├── logs/                      # 로그 파일 (런타임)
+├── reports/                   # 생성된 보고서 (런타임)
+└── docker/                    # Docker 볼륨 데이터 (런타임)
 ```
 
 ## API 키 설정
