@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "name": "Streamlit Debug Restart",
+  "description": "Re-runs Streamlit in debug cycle on port 8502 with environment setup, process cleanup, venv activation, quick tests, and monitoring",
+  "version": "1",
+  "when": {
+    "type": "userTriggered",
+    "patterns": [
+      "ai-branding-chatbot/app.py",
+      "ai-branding-chatbot/components/*.py",
+      "ai-branding-chatbot/utils/*.py",
+      "ai-branding-chatbot/requirements.txt"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Manual task: Re-run Streamlit in debug cycle on port 8502\n\nSteps:\n1) Set ENV same as Hook A (PROJECT_ROOT, PORT=8502, ENTRY=app.py, VENV_DIR=.venv).\n2) Kill existing process on PORT (same method).\n3) Activate venv if present.\n4) Run quick checks:\n   - pytest -q -k \"spec or smoke\" --maxfail=1 || true\n5) Start Streamlit:\n   - python3 -m streamlit run ${ENTRY} --server.headless true --server.port ${PORT}\n6) Monitor logs and summarize:\n   - If READY: print \"✅ Streamlit is running on http://localhost:${PORT}\"\n   - If FAILED: show last 200 lines and pinpoint first traceback.\n7) If no issues:\n   - When READY and no error/exception appears for an additional 5 seconds,\n     print \"No issues detected. Stopping server and exiting hook.\"\n     then gracefully terminate the Streamlit process (SIGINT, fallback SIGKILL if needed) and exit with success.\n"
+  }
+}

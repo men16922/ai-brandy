@@ -1,0 +1,33 @@
+{
+  "서울": {
+    "강남": {
+      "characteristics": ["고급", "트렌디", "비즈니스"],
+      "foot_traffic": "높음",
+      "rent_level": "매우높음"
+    },
+    "홍대": {
+      "characteristics": ["젊음", "힙함", "예술"],
+      "foot_traffic": "높음", 
+      "rent_level": "높음"
+    },
+    "명동": {
+      "characteristics": ["관광", "쇼핑", "국제적"],
+      "foot_traffic": "매우높음",
+      "rent_level": "매우높음"
+    }
+  },
+  "인천": {
+    "부평": {
+      "characteristics": ["서민적", "실용적", "접근성"],
+      "foot_traffic": "보통",
+      "rent_level": "보통"
+    }
+  },
+  "경기": {
+    "수원": {
+      "characteristics": ["전통", "가족친화", "안정적"],
+      "foot_traffic": "보통",
+      "rent_level": "보통"
+    }
+  }
+}
